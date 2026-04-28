@@ -119,6 +119,8 @@ export default function Home() {
   const signInWithGoogle = async () => {
     if (!supabase) return;
     try {
+      // Always use window.location.origin so the redirectTo reflects the
+      // actual domain the user is on (works for both local dev and Coolify).
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

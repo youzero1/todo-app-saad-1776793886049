@@ -7,6 +7,13 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
 
+  // Use the forwarded host header if available (e.g. behind a reverse proxy like Coolify)
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
+  const baseUrl = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : origin;
+
   if (code) {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -25,5 +32,5 @@ export async function GET(request: NextRequest) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  return NextResponse.redirect(`${origin}/`);
+  return NextResponse.redirect(`${baseUrl}/`);
 }
