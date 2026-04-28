@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 
 function getSupabaseClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
-    throw new Error('Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+    throw new Error('Missing Supabase environment variables.');
   }
-  return createClient(url, key);
+  return createBrowserClient(url, key);
 }
 
 type Todo = {
@@ -34,13 +35,11 @@ export default function Home() {
       const client = getSupabaseClient();
       setSupabase(client);
 
-      // Get initial session
       client.auth.getSession().then(({ data: { session } }) => {
         setUser(session?.user ?? null);
         setAuthLoading(false);
       });
 
-      // Listen for auth changes
       const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
         setUser(session?.user ?? null);
         setAuthLoading(false);
@@ -119,19 +118,28 @@ export default function Home() {
 
   const signInWithGoogle = async () => {
     if (!supabase) return;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-      },
-    });
-    if (error) setError('Failed to sign in with Google.');
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (e) {
+      setError('Failed to sign in with Google.');
+    }
   };
 
   const signOut = async () => {
     if (!supabase) return;
     const { error } = await supabase.auth.signOut();
     if (error) setError('Failed to sign out.');
+    else setUser(null);
   };
 
   const filteredTodos = todos.filter((t) =>
