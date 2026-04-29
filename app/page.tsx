@@ -119,12 +119,16 @@ export default function Home() {
   const signInWithGoogle = async () => {
     if (!supabase) return;
     try {
-      // Always use window.location.origin so the redirectTo reflects the
-      // actual domain the user is on (works for both local dev and Coolify).
+      // Use NEXT_PUBLIC_SITE_URL if set (set this in Coolify to your public domain).
+      // Fall back to window.location.origin for local dev.
+      const siteUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        (typeof window !== 'undefined' ? window.location.origin : '');
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${siteUrl}/auth/callback`,
           skipBrowserRedirect: true,
         },
       });
