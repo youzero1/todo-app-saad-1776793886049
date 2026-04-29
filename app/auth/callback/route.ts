@@ -7,22 +7,22 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
-  // Priority 1: Explicit env var set in Coolify as build-time + runtime var.
-  // Priority 2: x-forwarded-host header from Coolify's Traefik reverse proxy.
-  // Priority 3: The request's own origin (last resort — may be localhost inside container).
+  // Determine the canonical site URL in priority order:
+  // 1. NEXT_PUBLIC_SITE_URL build/runtime env var (set in Coolify)
+  // 2. x-forwarded-host + x-forwarded-proto headers from Traefik
+  // 3. Fallback to request origin (may be localhost inside container — last resort)
   let siteUrl = '';
 
   if (process.env.NEXT_PUBLIC_SITE_URL) {
     siteUrl = process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
   } else {
     const forwardedHost = request.headers.get('x-forwarded-host');
-    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
     if (forwardedHost) {
-      const proto = (forwardedProto ?? 'https').split(',')[0].trim();
-      siteUrl = `${proto}://${forwardedHost.split(',')[0].trim()}`;
+      const proto = forwardedProto.split(',')[0].trim();
+      const host = forwardedHost.split(',')[0].trim();
+      siteUrl = `${proto}://${host}`;
     } else {
-      // Fall back to request origin — only reliable when not behind a proxy
-      // that rewrites the host to localhost.
       const reqUrl = new URL(request.url);
       siteUrl = `${reqUrl.protocol}//${reqUrl.host}`;
     }
@@ -44,14 +44,31 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.exchangeCodeForSession(code);
 
-    if (error) {
-      console.error('Auth callback error:', error.message);
+    if (sessionError) {
+      console.error('Auth callback error:', sessionError.message);
       return NextResponse.redirect(`${siteUrl}/?error=auth_failed`);
+    }
+
+    // Upsert the authenticated user into our public profiles table so we have
+    // a record of every user who has signed in via Google OAuth.
+    if (sessionData?.user) {
+      const { user } = sessionData;
+      await supabase.from('profiles').upsert(
+        {
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name ?? null,
+          avatar_url: user.user_metadata?.avatar_url ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
     }
   }
 
-  // Always redirect back to the public-facing site URL, never localhost.
+  // Always redirect to the public-facing site URL — never localhost.
   return NextResponse.redirect(`${siteUrl}/`);
 }

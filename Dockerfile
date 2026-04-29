@@ -18,9 +18,10 @@ COPY . .
 # then promote each to an ENV so Next.js sees them during `next build`.
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-# NEXT_PUBLIC_SITE_URL tells the app its canonical public URL (e.g.
-# https://hqvufimnwydrm2uufljztxsh.u0.dev). Set this in Coolify as both a
-# build arg AND a runtime env var so the OAuth redirectTo is always correct.
+# NEXT_PUBLIC_SITE_URL must be set in Coolify as BOTH a build argument AND
+# a runtime environment variable. It tells the app its canonical public URL
+# (e.g. https://hqvufimnwydrm2uufljztxsh.u0.dev) so every OAuth redirectTo
+# and server-side redirect uses the real domain, never localhost.
 ARG NEXT_PUBLIC_SITE_URL
 
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
@@ -42,9 +43,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Runtime env vars (Coolify injects these automatically for the container).
-# NEXT_PUBLIC_SITE_URL must also be set here so the server-side callback
-# route can read it at runtime.
+# Runtime env vars — Coolify injects these into the running container.
+# NEXT_PUBLIC_SITE_URL is read by the auth callback route at request time
+# to build the correct redirect URL.
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 
 USER nextjs

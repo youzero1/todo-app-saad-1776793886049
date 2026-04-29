@@ -21,6 +21,16 @@ type Todo = {
   created_at: string;
 };
 
+// Build the OAuth redirectTo using NEXT_PUBLIC_SITE_URL when available.
+// This env var is embedded at build time by Next.js so it is always the
+// correct public Coolify domain, never localhost.
+function getCallbackUrl(): string {
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : '');
+  return `${siteUrl.replace(/\/$/, '')}/auth/callback`;
+}
+
 export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [input, setInput] = useState('');
@@ -29,16 +39,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-
-  // Build the OAuth redirectTo.
-  // NEXT_PUBLIC_SITE_URL is injected by Summon/Coolify at build time so the
-  // callback always lands on the correct public domain, not localhost.
-  const getCallbackUrl = (): string => {
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : '');
-    return `${siteUrl.replace(/\/$/, '')}/auth/callback`;
-  };
 
   useEffect(() => {
     try {
@@ -132,10 +132,8 @@ export default function Home() {
         provider: 'google',
         options: {
           redirectTo: callbackUrl,
-          // skipBrowserRedirect + window.open:
-          // - Prevents OAuth from redirecting inside the iframe/preview.
-          // - Opens OAuth in a new tab so the final redirect goes to the
-          //   correct public URL (callbackUrl) and not localhost.
+          // skipBrowserRedirect + window.open keeps OAuth out of the iframe
+          // and ensures the final redirect uses the correct public domain.
           skipBrowserRedirect: true,
         },
       });
