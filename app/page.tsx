@@ -30,6 +30,16 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
+  // Derive the correct public site URL at runtime.
+  // NEXT_PUBLIC_SITE_URL is baked in at build time by Coolify (or any CI).
+  // Fallback to window.location.origin for local dev / Summon preview.
+  const getSiteUrl = (): string => {
+    const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    if (envUrl) return envUrl.replace(/\/$/, '');
+    if (typeof window !== 'undefined') return window.location.origin;
+    return '';
+  };
+
   useEffect(() => {
     try {
       const client = getSupabaseClient();
@@ -116,20 +126,14 @@ export default function Home() {
   const signInWithGoogle = async () => {
     try {
       const supabase = getSupabaseClient();
-
-      // Use NEXT_PUBLIC_SITE_URL when set (Coolify deployment).
-      // Otherwise fall back to the current window origin (local dev / preview).
-      const siteUrl =
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        (typeof window !== 'undefined' ? window.location.origin : '');
+      const siteUrl = getSiteUrl();
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${siteUrl}/auth/callback`,
-          // skipBrowserRedirect is required so the OAuth popup opens in a new
-          // tab instead of redirecting the current iframe/window (which causes
-          // "refused to connect" in Summon's preview and in deployed iframes).
+          // skipBrowserRedirect opens OAuth in a new tab instead of
+          // redirecting the current window — required for iframe/preview environments.
           skipBrowserRedirect: true,
         },
       });

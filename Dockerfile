@@ -15,6 +15,7 @@ ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 # NEXT_PUBLIC_SITE_URL must also be available at build time so the redirectTo
 # URL baked into the OAuth call points to the correct production domain.
+# Set this to your Coolify deployment URL, e.g. https://hqvufimnwydrm2uufljztxsh.u0.dev
 ARG NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
