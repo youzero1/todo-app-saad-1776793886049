@@ -113,20 +113,26 @@ export default function Home() {
     else setTodos((prev) => prev.filter((t) => !t.completed));
   };
 
+  // Always derive the origin from window.location at call-time so it reflects
+  // the real browser URL (Coolify domain, preview URL, etc.) — never a baked-in
+  // env variable which could be localhost from the build container.
   const signInWithGoogle = async () => {
     try {
       const supabase = getSupabaseClient();
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const origin = window.location.origin;
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${origin}/auth/callback`,
+          // Skip the automatic redirect so we can open a new tab.
+          // OAuth providers block loading inside iframes / WebContainer previews.
           skipBrowserRedirect: true,
         },
       });
       if (error) throw error;
       if (data?.url) {
+        // Open in a new tab — works in both the Summon preview and deployed apps.
         window.open(data.url, '_blank');
       }
     } catch (e) {

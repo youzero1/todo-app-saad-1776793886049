@@ -7,26 +7,12 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
-  // Determine the canonical site URL in priority order:
-  // 1. NEXT_PUBLIC_SITE_URL build/runtime env var (set in Coolify)
-  // 2. x-forwarded-host + x-forwarded-proto headers from Traefik
-  // 3. Fallback to request origin (may be localhost inside container — last resort)
-  let siteUrl = '';
-
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    siteUrl = process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
-  } else {
-    const forwardedHost = request.headers.get('x-forwarded-host');
-    const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
-    if (forwardedHost) {
-      const proto = forwardedProto.split(',')[0].trim();
-      const host = forwardedHost.split(',')[0].trim();
-      siteUrl = `${proto}://${host}`;
-    } else {
-      const reqUrl = new URL(request.url);
-      siteUrl = `${reqUrl.protocol}//${reqUrl.host}`;
-    }
-  }
+  // Build the canonical public URL from reverse-proxy headers (set by Coolify/Traefik).
+  // Inside Docker the request.url host is localhost:3000, so we MUST prefer the
+  // forwarded headers to get the real public domain.
+  const proto = request.headers.get('x-forwarded-proto') ?? 'https';
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? '';
+  const siteUrl = host ? `${proto.split(',')[0].trim()}://${host.split(',')[0].trim()}` : new URL(request.url).origin;
 
   if (code) {
     const cookieStore = await cookies();
@@ -52,8 +38,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${siteUrl}/?error=auth_failed`);
     }
 
-    // Upsert the authenticated user into our public profiles table so we have
-    // a record of every user who has signed in via Google OAuth.
     if (sessionData?.user) {
       const { user } = sessionData;
       await supabase.from('profiles').upsert(
@@ -69,6 +53,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Always redirect to the public-facing site URL — never localhost.
   return NextResponse.redirect(`${siteUrl}/`);
 }
