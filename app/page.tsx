@@ -21,9 +21,6 @@ type Todo = {
   created_at: string;
 };
 
-// Build the OAuth redirectTo using NEXT_PUBLIC_SITE_URL when available.
-// This env var is embedded at build time by Next.js so it is always the
-// correct public Coolify domain, never localhost.
 function getCallbackUrl(): string {
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -132,8 +129,6 @@ export default function Home() {
         provider: 'google',
         options: {
           redirectTo: callbackUrl,
-          // skipBrowserRedirect + window.open keeps OAuth out of the iframe
-          // and ensures the final redirect uses the correct public domain.
           skipBrowserRedirect: true,
         },
       });
@@ -197,7 +192,7 @@ export default function Home() {
       {/* Main Content */}
       <div className="w-full max-w-md mx-auto pt-8">
         <h1 className="text-4xl font-extrabold text-center text-indigo-700 mb-8 tracking-tight">
-          ✅ My Todo List
+          ✅ Todo List
         </h1>
         {error && (
           <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm flex items-center justify-between">
