@@ -30,14 +30,12 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // The OAuth redirectTo must always point to the live Coolify deployment.
-  // NEXT_PUBLIC_SITE_URL is baked in at build time when set in Coolify build args.
-  // Fallback to window.location.origin for local dev.
+  // Build the OAuth redirectTo from the current browser URL so it always
+  // matches the environment (Coolify, Vercel, local dev, etc.) without any
+  // hardcoded domain or build-time env var needed.
   const getCallbackUrl = (): string => {
-    const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (envUrl) return `${envUrl.replace(/\/$/, '')}/auth/callback`;
-    if (typeof window !== 'undefined') return `${window.location.origin}/auth/callback`;
-    return 'https://hqvufimnwydrm2uufljztxsh.u0.dev/auth/callback';
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}/auth/callback`;
   };
 
   useEffect(() => {
@@ -132,14 +130,13 @@ export default function Home() {
         provider: 'google',
         options: {
           redirectTo: callbackUrl,
-          // skipBrowserRedirect opens OAuth in a new tab — required for
-          // iframe/preview environments and avoids CORS issues in Coolify.
+          // skipBrowserRedirect: open OAuth in a new tab so the current page
+          // is preserved and iframe/preview environments work correctly.
           skipBrowserRedirect: true,
         },
       });
       if (error) throw error;
       if (data?.url) {
-        // Open in a new tab so the current page is preserved.
         window.open(data.url, '_blank');
       }
     } catch (e) {

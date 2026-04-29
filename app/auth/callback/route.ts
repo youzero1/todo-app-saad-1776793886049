@@ -7,9 +7,29 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
-  // Always redirect back to the hardcoded Coolify deployment URL.
-  // NEXT_PUBLIC_SITE_URL can override this if set as a build-time env var in Coolify.
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://hqvufimnwydrm2uufljztxsh.u0.dev').replace(/\/$/, '');
+  // Determine the site URL at runtime from the incoming request itself.
+  // This works correctly on every environment (Coolify, Vercel, local)
+  // without needing any hardcoded URL or build-time env var.
+  // Coolify sets x-forwarded-proto and x-forwarded-host via its reverse proxy,
+  // and Next.js forwards those when trustHostHeader is enabled.
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const forwardedHost = request.headers.get('x-forwarded-host');
+
+  let siteUrl: string;
+  if (forwardedHost) {
+    const proto = forwardedProto?.split(',')[0].trim() ?? 'https';
+    siteUrl = `${proto}://${forwardedHost.split(',')[0].trim()}`;
+  } else {
+    // Fallback: derive from the request URL itself (works for local dev)
+    const reqUrl = new URL(request.url);
+    siteUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+  }
+
+  // Allow NEXT_PUBLIC_SITE_URL to explicitly override everything when set as a
+  // build-time arg in Coolify (belt-and-suspenders).
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    siteUrl = process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
+  }
 
   if (code) {
     const cookieStore = await cookies();
@@ -34,9 +54,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${siteUrl}/?error=auth_failed`);
     }
 
-    // User is now registered / signed in via Supabase Auth.
-    // data.user contains the Google profile — no extra DB upsert needed;
-    // Supabase automatically persists the user in auth.users.
     console.log('Signed in user:', data.user?.email);
   }
 
