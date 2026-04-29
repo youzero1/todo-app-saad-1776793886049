@@ -7,10 +7,11 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
 
-  // Priority order for determining the public base URL:
-  // 1. NEXT_PUBLIC_SITE_URL env var (explicitly set in Coolify — most reliable)
-  // 2. x-forwarded-host header (set by Coolify's reverse proxy)
-  // 3. origin from the request URL (fallback for local dev)
+  // Determine the correct public base URL.
+  // Priority:
+  // 1. NEXT_PUBLIC_SITE_URL — set this in Coolify to your public domain (e.g. https://hqvufimnwydrm2uufljztxsh.u0.dev)
+  // 2. x-forwarded-host — set by Coolify's reverse proxy
+  // 3. origin from the incoming request URL
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   const forwardedHost = request.headers.get('x-forwarded-host');
   const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';

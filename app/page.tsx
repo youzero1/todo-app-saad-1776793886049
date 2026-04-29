@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
+let _supabaseClient: SupabaseClient | null = null;
 function getSupabaseClient(): SupabaseClient {
+  if (_supabaseClient) return _supabaseClient;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    throw new Error('Missing Supabase environment variables.');
-  }
-  return createBrowserClient(url, key);
+  if (!url || !key) throw new Error('Missing Supabase environment variables.');
+  _supabaseClient = createBrowserClient(url, key);
+  return _supabaseClient;
 }
 
 type Todo = {
@@ -26,24 +27,26 @@ export default function Home() {
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     try {
       const client = getSupabaseClient();
-      setSupabase(client);
 
       client.auth.getSession().then(({ data: { session } }) => {
         setUser(session?.user ?? null);
         setAuthLoading(false);
       });
 
-      const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      const {
+        data: { subscription },
+      } = client.auth.onAuthStateChange((_event, session) => {
         setUser(session?.user ?? null);
         setAuthLoading(false);
       });
+
+      loadTodos(client);
 
       return () => subscription.unsubscribe();
     } catch (e) {
@@ -53,14 +56,8 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    if (supabase) {
-      loadTodos();
-    }
-  }, [supabase]);
-
-  const loadTodos = async () => {
-    if (!supabase) return;
+  const loadTodos = async (client?: SupabaseClient) => {
+    const supabase = client ?? getSupabaseClient();
     setLoading(true);
     setError(null);
     const { data, error } = await supabase
@@ -73,7 +70,7 @@ export default function Home() {
   };
 
   const addTodo = async () => {
-    if (!supabase) return;
+    const supabase = getSupabaseClient();
     const text = input.trim();
     if (!text) return;
     const { data, error } = await supabase
@@ -89,7 +86,7 @@ export default function Home() {
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
-    if (!supabase) return;
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('todos')
       .update({ completed: !completed })
@@ -101,14 +98,14 @@ export default function Home() {
   };
 
   const deleteTodo = async (id: string) => {
-    if (!supabase) return;
+    const supabase = getSupabaseClient();
     const { error } = await supabase.from('todos').delete().eq('id', id);
     if (error) setError('Failed to delete todo.');
     else setTodos((prev) => prev.filter((t) => t.id !== id));
   };
 
   const clearCompleted = async () => {
-    if (!supabase) return;
+    const supabase = getSupabaseClient();
     const ids = todos.filter((t) => t.completed).map((t) => t.id);
     if (ids.length === 0) return;
     const { error } = await supabase.from('todos').delete().in('id', ids);
@@ -117,10 +114,11 @@ export default function Home() {
   };
 
   const signInWithGoogle = async () => {
-    if (!supabase) return;
     try {
-      // Use NEXT_PUBLIC_SITE_URL if set (set this in Coolify to your public domain).
-      // Fall back to window.location.origin for local dev.
+      const supabase = getSupabaseClient();
+
+      // Use NEXT_PUBLIC_SITE_URL when set (Coolify deployment).
+      // Otherwise fall back to the current window origin (local dev / preview).
       const siteUrl =
         process.env.NEXT_PUBLIC_SITE_URL ||
         (typeof window !== 'undefined' ? window.location.origin : '');
@@ -129,6 +127,9 @@ export default function Home() {
         provider: 'google',
         options: {
           redirectTo: `${siteUrl}/auth/callback`,
+          // skipBrowserRedirect is required so the OAuth popup opens in a new
+          // tab instead of redirecting the current iframe/window (which causes
+          // "refused to connect" in Summon's preview and in deployed iframes).
           skipBrowserRedirect: true,
         },
       });
@@ -142,7 +143,7 @@ export default function Home() {
   };
 
   const signOut = async () => {
-    if (!supabase) return;
+    const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signOut();
     if (error) setError('Failed to sign out.');
     else setUser(null);

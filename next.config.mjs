@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  // Trust the x-forwarded-host header from Coolify's reverse proxy
-  // so that server-side code (auth callback) sees the real public domain.
+  // Trust proxy headers (x-forwarded-host, x-forwarded-proto) set by Coolify's
+  // reverse proxy so server-side code sees the real public domain, not localhost.
   experimental: {
     trustHostHeader: true,
   },
