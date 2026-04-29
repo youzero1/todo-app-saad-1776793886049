@@ -30,10 +30,9 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Build the OAuth redirectTo using NEXT_PUBLIC_SITE_URL when available
-  // (injected as a build-time arg in Coolify), otherwise fall back to the
-  // current browser origin. This guarantees the callback always lands on
-  // the correct public domain rather than localhost.
+  // Build the OAuth redirectTo.
+  // NEXT_PUBLIC_SITE_URL is injected by Summon/Coolify at build time so the
+  // callback always lands on the correct public domain, not localhost.
   const getCallbackUrl = (): string => {
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
@@ -133,8 +132,10 @@ export default function Home() {
         provider: 'google',
         options: {
           redirectTo: callbackUrl,
-          // Open OAuth in a new tab — prevents iframe/preview breakage and
-          // ensures the redirect lands back on the correct public domain.
+          // skipBrowserRedirect + window.open:
+          // - Prevents OAuth from redirecting inside the iframe/preview.
+          // - Opens OAuth in a new tab so the final redirect goes to the
+          //   correct public URL (callbackUrl) and not localhost.
           skipBrowserRedirect: true,
         },
       });

@@ -7,29 +7,25 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
-  // Determine the public-facing site URL using multiple strategies, in order
-  // of reliability for Coolify + reverse-proxy deployments.
+  // Priority 1: Explicit env var set in Coolify as build-time + runtime var.
+  // Priority 2: x-forwarded-host header from Coolify's Traefik reverse proxy.
+  // Priority 3: The request's own origin (last resort — may be localhost inside container).
+  let siteUrl = '';
 
-  // 1. Explicit build-time / runtime override — most reliable on Coolify.
-  //    Set NEXT_PUBLIC_SITE_URL as a build-time AND runtime env var in Coolify.
-  let siteUrl = process.env.NEXT_PUBLIC_SITE_URL
-    ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '')
-    : '';
-
-  // 2. Derive from forwarded headers set by Coolify's Traefik/Nginx reverse proxy.
-  if (!siteUrl) {
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    siteUrl = process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
+  } else {
     const forwardedHost = request.headers.get('x-forwarded-host');
     const forwardedProto = request.headers.get('x-forwarded-proto');
     if (forwardedHost) {
-      const proto = forwardedProto?.split(',')[0].trim() ?? 'https';
+      const proto = (forwardedProto ?? 'https').split(',')[0].trim();
       siteUrl = `${proto}://${forwardedHost.split(',')[0].trim()}`;
+    } else {
+      // Fall back to request origin — only reliable when not behind a proxy
+      // that rewrites the host to localhost.
+      const reqUrl = new URL(request.url);
+      siteUrl = `${reqUrl.protocol}//${reqUrl.host}`;
     }
-  }
-
-  // 3. Last resort — use the incoming request's own origin.
-  if (!siteUrl) {
-    const reqUrl = new URL(request.url);
-    siteUrl = `${reqUrl.protocol}//${reqUrl.host}`;
   }
 
   if (code) {
@@ -56,5 +52,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Always redirect back to the public-facing site URL, never localhost.
   return NextResponse.redirect(`${siteUrl}/`);
 }
