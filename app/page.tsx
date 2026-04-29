@@ -183,7 +183,7 @@ export default function Home() {
       {/* Main Content */}
       <div className="w-full max-w-md mx-auto pt-8">
         <h1 className="text-4xl font-extrabold text-center text-indigo-700 mb-8 tracking-tight">
-          Todo Lists
+          Todo List
         </h1>
         {error && (
           <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm flex items-center justify-between">
