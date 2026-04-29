@@ -30,14 +30,14 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Derive the correct public site URL at runtime.
-  // NEXT_PUBLIC_SITE_URL is baked in at build time by Coolify (or any CI).
-  // Fallback to window.location.origin for local dev / Summon preview.
-  const getSiteUrl = (): string => {
+  // The OAuth redirectTo must always point to the live Coolify deployment.
+  // NEXT_PUBLIC_SITE_URL is baked in at build time when set in Coolify build args.
+  // Fallback to window.location.origin for local dev.
+  const getCallbackUrl = (): string => {
     const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (envUrl) return envUrl.replace(/\/$/, '');
-    if (typeof window !== 'undefined') return window.location.origin;
-    return '';
+    if (envUrl) return `${envUrl.replace(/\/$/, '')}/auth/callback`;
+    if (typeof window !== 'undefined') return `${window.location.origin}/auth/callback`;
+    return 'https://hqvufimnwydrm2uufljztxsh.u0.dev/auth/callback';
   };
 
   useEffect(() => {
@@ -126,19 +126,20 @@ export default function Home() {
   const signInWithGoogle = async () => {
     try {
       const supabase = getSupabaseClient();
-      const siteUrl = getSiteUrl();
+      const callbackUrl = getCallbackUrl();
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${siteUrl}/auth/callback`,
-          // skipBrowserRedirect opens OAuth in a new tab instead of
-          // redirecting the current window — required for iframe/preview environments.
+          redirectTo: callbackUrl,
+          // skipBrowserRedirect opens OAuth in a new tab — required for
+          // iframe/preview environments and avoids CORS issues in Coolify.
           skipBrowserRedirect: true,
         },
       });
       if (error) throw error;
       if (data?.url) {
+        // Open in a new tab so the current page is preserved.
         window.open(data.url, '_blank');
       }
     } catch (e) {
