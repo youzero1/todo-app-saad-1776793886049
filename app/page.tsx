@@ -21,13 +21,6 @@ type Todo = {
   created_at: string;
 };
 
-function getCallbackUrl(): string {
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (typeof window !== 'undefined' ? window.location.origin : '');
-  return `${siteUrl.replace(/\/$/, '')}/auth/callback`;
-}
-
 export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [input, setInput] = useState('');
@@ -123,12 +116,12 @@ export default function Home() {
   const signInWithGoogle = async () => {
     try {
       const supabase = getSupabaseClient();
-      const callbackUrl = getCallbackUrl();
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: callbackUrl,
+          redirectTo: `${origin}/auth/callback`,
           skipBrowserRedirect: true,
         },
       });
@@ -192,7 +185,7 @@ export default function Home() {
       {/* Main Content */}
       <div className="w-full max-w-md mx-auto pt-8">
         <h1 className="text-4xl font-extrabold text-center text-indigo-700 mb-8 tracking-tight">
-          ✅ Todo List
+          Todo List
         </h1>
         {error && (
           <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm flex items-center justify-between">
