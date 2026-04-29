@@ -7,28 +7,29 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
-  // Determine the site URL at runtime from the incoming request itself.
-  // This works correctly on every environment (Coolify, Vercel, local)
-  // without needing any hardcoded URL or build-time env var.
-  // Coolify sets x-forwarded-proto and x-forwarded-host via its reverse proxy,
-  // and Next.js forwards those when trustHostHeader is enabled.
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const forwardedHost = request.headers.get('x-forwarded-host');
+  // Determine the public-facing site URL using multiple strategies, in order
+  // of reliability for Coolify + reverse-proxy deployments.
 
-  let siteUrl: string;
-  if (forwardedHost) {
-    const proto = forwardedProto?.split(',')[0].trim() ?? 'https';
-    siteUrl = `${proto}://${forwardedHost.split(',')[0].trim()}`;
-  } else {
-    // Fallback: derive from the request URL itself (works for local dev)
-    const reqUrl = new URL(request.url);
-    siteUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+  // 1. Explicit build-time / runtime override — most reliable on Coolify.
+  //    Set NEXT_PUBLIC_SITE_URL as a build-time AND runtime env var in Coolify.
+  let siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+    ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '')
+    : '';
+
+  // 2. Derive from forwarded headers set by Coolify's Traefik/Nginx reverse proxy.
+  if (!siteUrl) {
+    const forwardedHost = request.headers.get('x-forwarded-host');
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    if (forwardedHost) {
+      const proto = forwardedProto?.split(',')[0].trim() ?? 'https';
+      siteUrl = `${proto}://${forwardedHost.split(',')[0].trim()}`;
+    }
   }
 
-  // Allow NEXT_PUBLIC_SITE_URL to explicitly override everything when set as a
-  // build-time arg in Coolify (belt-and-suspenders).
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    siteUrl = process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
+  // 3. Last resort — use the incoming request's own origin.
+  if (!siteUrl) {
+    const reqUrl = new URL(request.url);
+    siteUrl = `${reqUrl.protocol}//${reqUrl.host}`;
   }
 
   if (code) {
@@ -47,14 +48,12 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
       console.error('Auth callback error:', error.message);
       return NextResponse.redirect(`${siteUrl}/?error=auth_failed`);
     }
-
-    console.log('Signed in user:', data.user?.email);
   }
 
   return NextResponse.redirect(`${siteUrl}/`);

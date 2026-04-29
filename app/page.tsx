@@ -30,12 +30,15 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Build the OAuth redirectTo from the current browser URL so it always
-  // matches the environment (Coolify, Vercel, local dev, etc.) without any
-  // hardcoded domain or build-time env var needed.
+  // Build the OAuth redirectTo using NEXT_PUBLIC_SITE_URL when available
+  // (injected as a build-time arg in Coolify), otherwise fall back to the
+  // current browser origin. This guarantees the callback always lands on
+  // the correct public domain rather than localhost.
   const getCallbackUrl = (): string => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${origin}/auth/callback`;
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (typeof window !== 'undefined' ? window.location.origin : '');
+    return `${siteUrl.replace(/\/$/, '')}/auth/callback`;
   };
 
   useEffect(() => {
@@ -130,8 +133,8 @@ export default function Home() {
         provider: 'google',
         options: {
           redirectTo: callbackUrl,
-          // skipBrowserRedirect: open OAuth in a new tab so the current page
-          // is preserved and iframe/preview environments work correctly.
+          // Open OAuth in a new tab — prevents iframe/preview breakage and
+          // ensures the redirect lands back on the correct public domain.
           skipBrowserRedirect: true,
         },
       });
