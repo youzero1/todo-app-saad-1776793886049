@@ -113,26 +113,18 @@ export default function Home() {
     else setTodos((prev) => prev.filter((t) => !t.completed));
   };
 
-  // Always derive the origin from window.location at call-time so it reflects
-  // the real browser URL (Coolify domain, preview URL, etc.) — never a baked-in
-  // env variable which could be localhost from the build container.
   const signInWithGoogle = async () => {
     try {
       const supabase = getSupabaseClient();
-      const origin = window.location.origin;
-
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${origin}/auth/callback`,
-          // Skip the automatic redirect so we can open a new tab.
-          // OAuth providers block loading inside iframes / WebContainer previews.
+          redirectTo: window.location.origin + '/auth/callback',
           skipBrowserRedirect: true,
         },
       });
       if (error) throw error;
       if (data?.url) {
-        // Open in a new tab — works in both the Summon preview and deployed apps.
         window.open(data.url, '_blank');
       }
     } catch (e) {
@@ -191,7 +183,7 @@ export default function Home() {
       {/* Main Content */}
       <div className="w-full max-w-md mx-auto pt-8">
         <h1 className="text-4xl font-extrabold text-center text-indigo-700 mb-8 tracking-tight">
-          Todo List
+          Todo Lists
         </h1>
         {error && (
           <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm flex items-center justify-between">
