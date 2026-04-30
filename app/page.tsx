@@ -59,6 +59,8 @@ export default function Home() {
           client.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
           });
+          // Reload todos after sign-in
+          loadTodos(client);
         }
       };
       window.addEventListener('message', onMsg);
@@ -82,24 +84,30 @@ export default function Home() {
       .from('todos')
       .select('*')
       .order('created_at', { ascending: true });
-    if (error) setError('Failed to load todos.');
-    else setTodos(data || []);
+    if (error) setError('Failed to load todos: ' + error.message);
+    else setTodos((data as Todo[]) || []);
     setLoading(false);
   };
 
   const addTodo = async () => {
-    const supabase = getSupabaseClient();
     const text = input.trim();
     if (!text) return;
-    const { data, error } = await supabase
-      .from('todos')
-      .insert([{ text, completed: false }])
-      .select()
-      .single();
-    if (error) setError('Failed to add todo.');
-    else if (data) {
-      setTodos((prev) => [...prev, data]);
-      setInput('');
+    setError(null);
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('todos')
+        .insert([{ text, completed: false }])
+        .select()
+        .single();
+      if (error) {
+        setError('Failed to add todo: ' + error.message);
+      } else if (data) {
+        setTodos((prev) => [...prev, data as Todo]);
+        setInput('');
+      }
+    } catch (e) {
+      setError('Failed to add todo: ' + (e as Error).message);
     }
   };
 
@@ -112,7 +120,7 @@ export default function Home() {
       .select()
       .single();
     if (error) setError('Failed to update todo.');
-    else if (data) setTodos((prev) => prev.map((t) => (t.id === id ? data : t)));
+    else if (data) setTodos((prev) => prev.map((t) => (t.id === id ? (data as Todo) : t)));
   };
 
   const deleteTodo = async (id: string) => {
@@ -149,7 +157,7 @@ export default function Home() {
         window.open(data.url, AUTH_POPUP_NAME, AUTH_POPUP_FEATURES);
       }
     } catch (e) {
-      setError('Failed to sign in with Google.');
+      setError('Failed to sign in with Google: ' + (e as Error).message);
     }
   };
 
@@ -221,7 +229,8 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="w-full max-w-md mx-auto pt-8">
-        <h1 className="text-4xl font-extrabold text-center mb-8 tracking-tight drop-shadow-sm"
+        <h1
+          className="text-4xl font-extrabold text-center mb-8 tracking-tight drop-shadow-sm"
           style={{ color: '#0c4a6e', textShadow: '0 2px 16px rgba(255,255,255,0.5)' }}
         >
           Todo List
@@ -253,28 +262,45 @@ export default function Home() {
             <div className="py-12 text-center text-sky-400 text-sm">Loading todos...</div>
           ) : filteredTodos.length === 0 ? (
             <div className="py-12 text-center text-sky-400 text-sm">
-              {filter === 'completed' ? 'No completed tasks yet.' : filter === 'active' ? 'No active tasks! 🎉' : 'Add a task to get started!'}
+              {filter === 'completed'
+                ? 'No completed tasks yet.'
+                : filter === 'active'
+                ? 'No active tasks! 🎉'
+                : 'Add a task to get started!'}
             </div>
           ) : (
             <ul className="divide-y divide-sky-100">
               {filteredTodos.map((todo) => (
-                <li key={todo.id} className="flex items-center gap-3 px-4 py-3 group hover:bg-sky-50/60 transition-colors">
+                <li
+                  key={todo.id}
+                  className="flex items-center gap-3 px-4 py-3 group hover:bg-sky-50/60 transition-colors"
+                >
                   <button
                     onClick={() => toggleTodo(todo.id, todo.completed)}
                     className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      todo.completed ? 'bg-sky-500 border-sky-500 text-white' : 'border-sky-300 hover:border-sky-500'
+                      todo.completed
+                        ? 'bg-sky-500 border-sky-500 text-white'
+                        : 'border-sky-300 hover:border-sky-500'
                     }`}
                     aria-label={todo.completed ? 'Mark as incomplete' : 'Mark as complete'}
                   >
                     {todo.completed && (
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     )}
                   </button>
-                  <span className={`flex-1 text-sm ${
-                    todo.completed ? 'line-through text-sky-300' : 'text-sky-900'
-                  }`}>
+                  <span
+                    className={`flex-1 text-sm ${
+                      todo.completed ? 'line-through text-sky-300' : 'text-sky-900'
+                    }`}
+                  >
                     {todo.text}
                   </span>
                   <button
@@ -282,7 +308,13 @@ export default function Home() {
                     className="opacity-0 group-hover:opacity-100 text-sky-200 hover:text-red-500 transition-all duration-150"
                     aria-label="Delete todo"
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -292,14 +324,18 @@ export default function Home() {
           )}
           {!loading && todos.length > 0 && (
             <div className="flex items-center justify-between px-4 py-3 bg-sky-50/60 border-t border-sky-100 text-xs text-sky-500">
-              <span>{activeCount} item{activeCount !== 1 ? 's' : ''} left</span>
+              <span>
+                {activeCount} item{activeCount !== 1 ? 's' : ''} left
+              </span>
               <div className="flex gap-1">
                 {(['all', 'active', 'completed'] as const).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
                     className={`px-2 py-1 rounded capitalize transition-colors ${
-                      filter === f ? 'bg-sky-100 text-sky-700 font-semibold' : 'hover:bg-sky-100'
+                      filter === f
+                        ? 'bg-sky-100 text-sky-700 font-semibold'
+                        : 'hover:bg-sky-100'
                     }`}
                   >
                     {f}
@@ -312,6 +348,13 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {/* Debug info — only shown when there's an error, helps diagnose RLS issues */}
+        {error && (
+          <p className="mt-3 text-center text-xs text-sky-400">
+            Tip: If todos won\'t load or save, ensure the Supabase anon RLS policies are applied for the todos table.
+          </p>
+        )}
       </div>
     </main>
   );
@@ -321,23 +364,59 @@ function Cloud({ style, scale = 1 }: { style?: React.CSSProperties; scale?: numb
   const s = scale;
   return (
     <div className="absolute" style={style}>
-      <div style={{ transform: `scale(${s})`, transformOrigin: 'top left', position: 'relative', width: 120, height: 50 }}>
-        <div style={{
-          position: 'absolute', bottom: 0, left: 10, width: 100, height: 28,
-          background: 'rgba(255,255,255,0.85)', borderRadius: 20,
-        }} />
-        <div style={{
-          position: 'absolute', bottom: 16, left: 20, width: 50, height: 36,
-          background: 'rgba(255,255,255,0.85)', borderRadius: '50%',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: 16, left: 45, width: 40, height: 44,
-          background: 'rgba(255,255,255,0.85)', borderRadius: '50%',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: 16, left: 70, width: 32, height: 30,
-          background: 'rgba(255,255,255,0.85)', borderRadius: '50%',
-        }} />
+      <div
+        style={{
+          transform: `scale(${s})`,
+          transformOrigin: 'top left',
+          position: 'relative',
+          width: 120,
+          height: 50,
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 10,
+            width: 100,
+            height: 28,
+            background: 'rgba(255,255,255,0.85)',
+            borderRadius: 20,
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: 20,
+            width: 50,
+            height: 36,
+            background: 'rgba(255,255,255,0.85)',
+            borderRadius: '50%',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: 45,
+            width: 40,
+            height: 44,
+            background: 'rgba(255,255,255,0.85)',
+            borderRadius: '50%',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: 70,
+            width: 32,
+            height: 30,
+            background: 'rgba(255,255,255,0.85)',
+            borderRadius: '50%',
+          }}
+        />
       </div>
     </div>
   );
@@ -346,11 +425,23 @@ function Cloud({ style, scale = 1 }: { style?: React.CSSProperties; scale?: numb
 function GoogleIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4 h-4">
-      <path fill="#EA4335" d="M24 9.5c3.14 0 5.95 1.08 8.17 2.86l6.1-6.1C34.46 3.04 29.54 1 24 1 14.82 1 7.07 6.48 3.6 14.22l7.1 5.52C12.45 13.37 17.76 9.5 24 9.5z"/>
-      <path fill="#4285F4" d="M46.52 24.5c0-1.64-.15-3.22-.42-4.74H24v8.98h12.67c-.55 2.94-2.2 5.43-4.68 7.1l7.18 5.57C43.32 37.45 46.52 31.4 46.52 24.5z"/>
-      <path fill="#FBBC05" d="M10.7 28.26A14.6 14.6 0 0 1 9.5 24c0-1.48.25-2.92.7-4.26l-7.1-5.52A23.93 23.93 0 0 0 0 24c0 3.87.93 7.53 2.56 10.76l8.14-6.5z"/>
-      <path fill="#34A853" d="M24 47c5.54 0 10.19-1.84 13.59-4.99l-7.18-5.57c-1.84 1.24-4.2 1.97-6.41 1.97-6.24 0-11.55-3.87-13.3-9.24l-8.14 6.5C7.07 41.52 14.82 47 24 47z"/>
-      <path fill="none" d="M0 0h48v48H0z"/>
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.14 0 5.95 1.08 8.17 2.86l6.1-6.1C34.46 3.04 29.54 1 24 1 14.82 1 7.07 6.48 3.6 14.22l7.1 5.52C12.45 13.37 17.76 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.52 24.5c0-1.64-.15-3.22-.42-4.74H24v8.98h12.67c-.55 2.94-2.2 5.43-4.68 7.1l7.18 5.57C43.32 37.45 46.52 31.4 46.52 24.5z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.7 28.26A14.6 14.6 0 0 1 9.5 24c0-1.48.25-2.92.7-4.26l-7.1-5.52A23.93 23.93 0 0 0 0 24c0 3.87.93 7.53 2.56 10.76l8.14-6.5z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 47c5.54 0 10.19-1.84 13.59-4.99l-7.18-5.57c-1.84 1.24-4.2 1.97-6.41 1.97-6.24 0-11.55-3.87-13.3-9.24l-8.14 6.5C7.07 41.52 14.82 47 24 47z"
+      />
+      <path fill="none" d="M0 0h48v48H0z" />
     </svg>
   );
 }
