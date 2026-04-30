@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
+const AUTH_POPUP_NAME = 'supabase_oauth';
+const AUTH_POPUP_FEATURES =
+  'popup=yes,width=560,height=720,menubar=no,toolbar=no,scrollbars=yes,resizable=yes,status=no';
+
 let _supabaseClient: SupabaseClient | null = null;
 function getSupabaseClient(): SupabaseClient {
   if (_supabaseClient) return _supabaseClient;
@@ -48,7 +52,21 @@ export default function Home() {
 
       loadTodos(client);
 
-      return () => subscription.unsubscribe();
+      // Listen for OAuth popup completion
+      const onMsg = (e: MessageEvent) => {
+        if (e.origin !== window.location.origin) return;
+        if (e.data?.type === 'summon-supabase-auth-popup-done' && e.data?.ok) {
+          client.auth.getSession().then(({ data: { session } }) => {
+            setUser(session?.user ?? null);
+          });
+        }
+      };
+      window.addEventListener('message', onMsg);
+
+      return () => {
+        subscription.unsubscribe();
+        window.removeEventListener('message', onMsg);
+      };
     } catch (e) {
       setError((e as Error).message);
       setLoading(false);
@@ -116,16 +134,19 @@ export default function Home() {
   const signInWithGoogle = async () => {
     try {
       const supabase = getSupabaseClient();
+      const siteUrl =
+        (typeof window !== 'undefined' ? window.location.origin : '') ||
+        (process.env.NEXT_PUBLIC_SITE_URL || '');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/auth/callback',
+          redirectTo: siteUrl + '/auth/callback',
           skipBrowserRedirect: true,
         },
       });
       if (error) throw error;
       if (data?.url) {
-        window.open(data.url, '_blank');
+        window.open(data.url, AUTH_POPUP_NAME, AUTH_POPUP_FEATURES);
       }
     } catch (e) {
       setError('Failed to sign in with Google.');
