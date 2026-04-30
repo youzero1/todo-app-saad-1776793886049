@@ -166,7 +166,25 @@ export default function Home() {
   const activeCount = todos.filter((t) => !t.completed).length;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 px-4">
+    <main className="min-h-screen px-4" style={{ background: 'transparent' }}>
+      {/* Decorative sky elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10" aria-hidden>
+        {/* Gradient sky background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-sky-300 via-sky-200 to-blue-100" />
+        {/* Sun */}
+        <div className="absolute top-10 right-16 w-20 h-20 rounded-full bg-yellow-200 shadow-[0_0_60px_20px_rgba(253,224,71,0.5)]" />
+        {/* Clouds */}
+        <Cloud style={{ top: '6%', left: '5%', opacity: 0.9 }} scale={1.2} />
+        <Cloud style={{ top: '12%', left: '30%', opacity: 0.8 }} scale={0.8} />
+        <Cloud style={{ top: '4%', left: '55%', opacity: 0.85 }} scale={1.0} />
+        <Cloud style={{ top: '18%', right: '8%', opacity: 0.7 }} scale={0.9} />
+        <Cloud style={{ top: '28%', left: '15%', opacity: 0.6 }} scale={0.7} />
+        <Cloud style={{ bottom: '30%', right: '20%', opacity: 0.5 }} scale={1.1} />
+        <Cloud style={{ bottom: '15%', left: '10%', opacity: 0.4 }} scale={1.3} />
+        {/* Horizon glow */}
+        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-blue-200/60 to-transparent" />
+      </div>
+
       {/* Top Navigation Bar */}
       <div className="w-full max-w-4xl mx-auto flex items-center justify-end py-4">
         {authLoading ? (
@@ -177,15 +195,15 @@ export default function Home() {
               <img
                 src={user.user_metadata.avatar_url}
                 alt={user.user_metadata?.full_name ?? 'User avatar'}
-                className="w-8 h-8 rounded-full border-2 border-indigo-300 shadow-sm"
+                className="w-8 h-8 rounded-full border-2 border-sky-300 shadow-sm"
               />
             )}
-            <span className="text-sm text-gray-600 font-medium hidden sm:block">
+            <span className="text-sm text-sky-900 font-medium hidden sm:block">
               {user.user_metadata?.full_name ?? user.email}
             </span>
             <button
               onClick={signOut}
-              className="px-4 py-2 text-sm bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-xl border border-gray-200 shadow-sm transition-colors duration-150"
+              className="px-4 py-2 text-sm bg-white/80 hover:bg-white text-sky-800 font-medium rounded-xl border border-sky-200 shadow-sm transition-colors duration-150 backdrop-blur-sm"
             >
               Sign out
             </button>
@@ -193,7 +211,7 @@ export default function Home() {
         ) : (
           <button
             onClick={signInWithGoogle}
-            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-xl border border-gray-200 shadow-sm transition-colors duration-150"
+            className="flex items-center gap-2 px-4 py-2 bg-white/80 hover:bg-white text-sky-800 font-medium rounded-xl border border-sky-200 shadow-sm transition-colors duration-150 backdrop-blur-sm"
           >
             <GoogleIcon />
             <span className="text-sm">Sign in with Google</span>
@@ -203,11 +221,13 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="w-full max-w-md mx-auto pt-8">
-        <h1 className="text-4xl font-extrabold text-center text-indigo-700 mb-8 tracking-tight">
+        <h1 className="text-4xl font-extrabold text-center mb-8 tracking-tight drop-shadow-sm"
+          style={{ color: '#0c4a6e', textShadow: '0 2px 16px rgba(255,255,255,0.5)' }}
+        >
           Todo List
         </h1>
         {error && (
-          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm flex items-center justify-between">
+          <div className="mb-4 px-4 py-3 bg-red-50/90 border border-red-200 text-red-600 rounded-xl text-sm flex items-center justify-between backdrop-blur-sm">
             <span>{error}</span>
             <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600">✕</button>
           </div>
@@ -219,30 +239,30 @@ export default function Home() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') addTodo(); }}
             placeholder="What needs to be done?"
-            className="flex-1 px-4 py-3 rounded-xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-700 bg-white"
+            className="flex-1 px-4 py-3 rounded-xl border border-sky-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 text-gray-700 bg-white/80 backdrop-blur-sm placeholder-sky-300"
           />
           <button
             onClick={addTodo}
-            className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow transition-colors duration-150"
+            className="px-5 py-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-xl shadow transition-colors duration-150"
           >
             Add
           </button>
         </div>
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/60">
           {loading ? (
-            <div className="py-12 text-center text-gray-400 text-sm">Loading todos...</div>
+            <div className="py-12 text-center text-sky-400 text-sm">Loading todos...</div>
           ) : filteredTodos.length === 0 ? (
-            <div className="py-12 text-center text-gray-400 text-sm">
+            <div className="py-12 text-center text-sky-400 text-sm">
               {filter === 'completed' ? 'No completed tasks yet.' : filter === 'active' ? 'No active tasks! 🎉' : 'Add a task to get started!'}
             </div>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-sky-100">
               {filteredTodos.map((todo) => (
-                <li key={todo.id} className="flex items-center gap-3 px-4 py-3 group hover:bg-gray-50 transition-colors">
+                <li key={todo.id} className="flex items-center gap-3 px-4 py-3 group hover:bg-sky-50/60 transition-colors">
                   <button
                     onClick={() => toggleTodo(todo.id, todo.completed)}
                     className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      todo.completed ? 'bg-indigo-500 border-indigo-500 text-white' : 'border-gray-300 hover:border-indigo-400'
+                      todo.completed ? 'bg-sky-500 border-sky-500 text-white' : 'border-sky-300 hover:border-sky-500'
                     }`}
                     aria-label={todo.completed ? 'Mark as incomplete' : 'Mark as complete'}
                   >
@@ -252,12 +272,14 @@ export default function Home() {
                       </svg>
                     )}
                   </button>
-                  <span className={`flex-1 text-sm ${todo.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                  <span className={`flex-1 text-sm ${
+                    todo.completed ? 'line-through text-sky-300' : 'text-sky-900'
+                  }`}>
                     {todo.text}
                   </span>
                   <button
                     onClick={() => deleteTodo(todo.id)}
-                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-all duration-150"
+                    className="opacity-0 group-hover:opacity-100 text-sky-200 hover:text-red-500 transition-all duration-150"
                     aria-label="Delete todo"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -269,7 +291,7 @@ export default function Home() {
             </ul>
           )}
           {!loading && todos.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500">
+            <div className="flex items-center justify-between px-4 py-3 bg-sky-50/60 border-t border-sky-100 text-xs text-sky-500">
               <span>{activeCount} item{activeCount !== 1 ? 's' : ''} left</span>
               <div className="flex gap-1">
                 {(['all', 'active', 'completed'] as const).map((f) => (
@@ -277,7 +299,7 @@ export default function Home() {
                     key={f}
                     onClick={() => setFilter(f)}
                     className={`px-2 py-1 rounded capitalize transition-colors ${
-                      filter === f ? 'bg-indigo-100 text-indigo-700 font-semibold' : 'hover:bg-gray-200'
+                      filter === f ? 'bg-sky-100 text-sky-700 font-semibold' : 'hover:bg-sky-100'
                     }`}
                   >
                     {f}
@@ -292,6 +314,32 @@ export default function Home() {
         </div>
       </div>
     </main>
+  );
+}
+
+function Cloud({ style, scale = 1 }: { style?: React.CSSProperties; scale?: number }) {
+  const s = scale;
+  return (
+    <div className="absolute" style={style}>
+      <div style={{ transform: `scale(${s})`, transformOrigin: 'top left', position: 'relative', width: 120, height: 50 }}>
+        <div style={{
+          position: 'absolute', bottom: 0, left: 10, width: 100, height: 28,
+          background: 'rgba(255,255,255,0.85)', borderRadius: 20,
+        }} />
+        <div style={{
+          position: 'absolute', bottom: 16, left: 20, width: 50, height: 36,
+          background: 'rgba(255,255,255,0.85)', borderRadius: '50%',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: 16, left: 45, width: 40, height: 44,
+          background: 'rgba(255,255,255,0.85)', borderRadius: '50%',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: 16, left: 70, width: 32, height: 30,
+          background: 'rgba(255,255,255,0.85)', borderRadius: '50%',
+        }} />
+      </div>
+    </div>
   );
 }
 
