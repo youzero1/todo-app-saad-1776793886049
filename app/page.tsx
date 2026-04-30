@@ -104,6 +104,8 @@ export default function Home() {
     setError(null);
     try {
       const supabase = getSupabaseClient();
+      // Always explicitly pass user_id so the RLS WITH CHECK is satisfied
+      // regardless of whether the DB DEFAULT has propagated.
       const { data, error } = await supabase
         .from('todos')
         .insert([{ text, completed: false, user_id: user.id }])
