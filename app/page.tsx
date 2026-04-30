@@ -23,6 +23,7 @@ type Todo = {
   text: string;
   completed: boolean;
   created_at: string;
+  user_id: string;
 };
 
 export default function Home() {
@@ -41,6 +42,7 @@ export default function Home() {
       client.auth.getSession().then(({ data: { session } }) => {
         setUser(session?.user ?? null);
         setAuthLoading(false);
+        loadTodos(client, session?.user ?? null);
       });
 
       const {
@@ -48,9 +50,8 @@ export default function Home() {
       } = client.auth.onAuthStateChange((_event, session) => {
         setUser(session?.user ?? null);
         setAuthLoading(false);
+        loadTodos(client, session?.user ?? null);
       });
-
-      loadTodos(client);
 
       // Listen for OAuth popup completion
       const onMsg = (e: MessageEvent) => {
@@ -58,9 +59,8 @@ export default function Home() {
         if (e.data?.type === 'summon-supabase-auth-popup-done' && e.data?.ok) {
           client.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
+            loadTodos(client, session?.user ?? null);
           });
-          // Reload todos after sign-in
-          loadTodos(client);
         }
       };
       window.addEventListener('message', onMsg);
@@ -76,13 +76,18 @@ export default function Home() {
     }
   }, []);
 
-  const loadTodos = async (client?: SupabaseClient) => {
-    const supabase = client ?? getSupabaseClient();
+  const loadTodos = async (client: SupabaseClient, currentUser: User | null) => {
+    if (!currentUser) {
+      setTodos([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('todos')
       .select('*')
+      .eq('user_id', currentUser.id)
       .order('created_at', { ascending: true });
     if (error) setError('Failed to load todos: ' + error.message);
     else setTodos((data as Todo[]) || []);
@@ -92,12 +97,16 @@ export default function Home() {
   const addTodo = async () => {
     const text = input.trim();
     if (!text) return;
+    if (!user) {
+      setError('Please sign in to add todos.');
+      return;
+    }
     setError(null);
     try {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('todos')
-        .insert([{ text, completed: false }])
+        .insert([{ text, completed: false, user_id: user.id }])
         .select()
         .single();
       if (error) {
@@ -165,7 +174,10 @@ export default function Home() {
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signOut();
     if (error) setError('Failed to sign out.');
-    else setUser(null);
+    else {
+      setUser(null);
+      setTodos([]);
+    }
   };
 
   const filteredTodos = todos.filter((t) =>
@@ -177,11 +189,8 @@ export default function Home() {
     <main className="min-h-screen px-4" style={{ background: 'transparent' }}>
       {/* Decorative sky elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10" aria-hidden>
-        {/* Gradient sky background */}
         <div className="absolute inset-0 bg-gradient-to-b from-sky-300 via-sky-200 to-blue-100" />
-        {/* Sun */}
         <div className="absolute top-10 right-16 w-20 h-20 rounded-full bg-yellow-200 shadow-[0_0_60px_20px_rgba(253,224,71,0.5)]" />
-        {/* Clouds */}
         <Cloud style={{ top: '6%', left: '5%', opacity: 0.9 }} scale={1.2} />
         <Cloud style={{ top: '12%', left: '30%', opacity: 0.8 }} scale={0.8} />
         <Cloud style={{ top: '4%', left: '55%', opacity: 0.85 }} scale={1.0} />
@@ -189,7 +198,6 @@ export default function Home() {
         <Cloud style={{ top: '28%', left: '15%', opacity: 0.6 }} scale={0.7} />
         <Cloud style={{ bottom: '30%', right: '20%', opacity: 0.5 }} scale={1.1} />
         <Cloud style={{ bottom: '15%', left: '10%', opacity: 0.4 }} scale={1.3} />
-        {/* Horizon glow */}
         <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-blue-200/60 to-transparent" />
       </div>
 
@@ -235,31 +243,46 @@ export default function Home() {
         >
           Todo List
         </h1>
+
         {error && (
           <div className="mb-4 px-4 py-3 bg-red-50/90 border border-red-200 text-red-600 rounded-xl text-sm flex items-center justify-between backdrop-blur-sm">
             <span>{error}</span>
             <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600">✕</button>
           </div>
         )}
-        <div className="flex gap-2 mb-6">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') addTodo(); }}
-            placeholder="What needs to be done?"
-            className="flex-1 px-4 py-3 rounded-xl border border-sky-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 text-gray-700 bg-white/80 backdrop-blur-sm placeholder-sky-300"
-          />
-          <button
-            onClick={addTodo}
-            className="px-5 py-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-xl shadow transition-colors duration-150"
-          >
-            Add
-          </button>
-        </div>
+
+        {!user && !authLoading && (
+          <div className="mb-6 px-4 py-3 bg-sky-50/80 border border-sky-200 text-sky-700 rounded-xl text-sm text-center backdrop-blur-sm">
+            Sign in with Google to add and manage your todos.
+          </div>
+        )}
+
+        {user && (
+          <div className="flex gap-2 mb-6">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') addTodo(); }}
+              placeholder="What needs to be done?"
+              className="flex-1 px-4 py-3 rounded-xl border border-sky-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 text-gray-700 bg-white/80 backdrop-blur-sm placeholder-sky-300"
+            />
+            <button
+              onClick={addTodo}
+              className="px-5 py-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-xl shadow transition-colors duration-150"
+            >
+              Add
+            </button>
+          </div>
+        )}
+
         <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-white/60">
           {loading ? (
             <div className="py-12 text-center text-sky-400 text-sm">Loading todos...</div>
+          ) : !user ? (
+            <div className="py-12 text-center text-sky-400 text-sm">
+              Sign in to see your todos.
+            </div>
           ) : filteredTodos.length === 0 ? (
             <div className="py-12 text-center text-sky-400 text-sm">
               {filter === 'completed'
@@ -322,7 +345,7 @@ export default function Home() {
               ))}
             </ul>
           )}
-          {!loading && todos.length > 0 && (
+          {!loading && user && todos.length > 0 && (
             <div className="flex items-center justify-between px-4 py-3 bg-sky-50/60 border-t border-sky-100 text-xs text-sky-500">
               <span>
                 {activeCount} item{activeCount !== 1 ? 's' : ''} left
@@ -348,13 +371,6 @@ export default function Home() {
             </div>
           )}
         </div>
-
-        {/* Debug info — only shown when there's an error, helps diagnose RLS issues */}
-        {error && (
-          <p className="mt-3 text-center text-xs text-sky-400">
-            Tip: If todos won\'t load or save, ensure the Supabase anon RLS policies are applied for the todos table.
-          </p>
-        )}
       </div>
     </main>
   );
